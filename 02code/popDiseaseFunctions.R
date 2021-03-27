@@ -155,6 +155,96 @@ survfun <- function(x, b) {
         (1 - exp(b[5] * x)))
 }
 
+# Create initial demographic object:
+CreateDemoObj <- function(theta, beta, N, omega, alpha, propM, yearIni,
+                          R0, qMax, maxImPr, immDur) {
+  # Create list of demographic parameters, values and rates:
+  demog <- list()
+  
+  # Read-in parameter values:
+  demog$pars <- list()
+  
+  # Mortality parameters (as from study population):
+  demog$pars$mort <- theta
+  
+  # Fecundity:
+  demog$pars$fec <- beta
+  
+  # -------------------------------- #
+  # Calculate monthly survival: ----
+  # -------------------------------- #
+  # Total number of individuals in pop:
+  # N <- c(F = 60, M = 50)
+  
+  # Increments in months:
+  dx <- 1 / 12
+  
+  # Maximum longevity:
+  # omega <- 60
+  
+  # Daily age vector in year units: 
+  demog$x <- seq(0, omega, dx)
+  demog$nx <- length(demog$x)
+  demog$dx <- dx
+  
+  # Index of adult ages:
+  demog$idAdult <- which(demog$x >= alpha)
+  demog$nxf <- length(demog$idAdult)
+  
+  # Calculate monthly age-specific survival per sex:
+  demog$px <- list()
+  for (sx in c("F", "M")) {
+    theta <- demog$pars$mort[, sx]
+    demog$px[[sx]] <- survfun(demog$x + demog$dx, theta) / 
+      survfun(demog$x, theta)
+  }
+  
+  # Calculate monthly reproduction output
+  demog$fx <- fecfun(demog$x, demog$pars$fec) * demog$dx
+  demog$fx[demog$x < alpha] <- 0
+  
+  # Sex ratios:
+  demog$sexRatio <- c(F = 1 - propM, M = propM)
+  
+  # initial year:
+  # yearIni <- 2021
+  
+  # Fill up initial susceptible states:
+  demog$susStart <- matrix(0, demog$nx, 2, dimnames = list(NULL, c("F", "M")))
+  xAgeSt <- 0:omega
+  for (sx in c("F", "M")) {
+    theta <- demog$pars$mort[, sx]
+    Sx <- survfun(xAgeSt, theta)
+    nAgeVec <- rbinom(n = length(xAgeSt), size = N[sx], prob = Sx / sum(Sx))
+    for (xx in 1:length(xAgeSt)) {
+      idx <- which(abs(demog$x - xAgeSt[xx]) == 
+                     min(abs(demog$x - xAgeSt[xx])))[1]
+      nAge <- rbinom(n = 1, size = N[sx], prob = Sx[xx] / sum(Sx))
+      demog$susStart[idx, sx] <- nAgeVec[xx]
+    }
+  }
+  
+  # ------------------------------ #
+  # Setup disease parameters: ----
+  # ------------------------------ #
+  demog$disease <- list()
+  
+  # Contagion rate (R0):
+  demog$disease$R0 <- R0
+  
+  # Mortality probability:
+  demog$disease$qx <- qMax / (1 + exp(-0.2 * (demog$x - omega * 0.4)))
+  
+  # Immunity rate:
+  demog$disease$immProb <- maxImPr / (1 + exp(-0.1 * (demog$x - omega * 0.4)))
+  
+  #Immunity duration (in months):
+  demog$disease$immDur <- immDur
+  
+  # Return demog:
+  return(demog)
+}
+
 # ============================ #
 # ==== RESULTS MANAGEMENT: ====
 # ============================ #
