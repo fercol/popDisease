@@ -15,9 +15,6 @@ library(RColorBrewer)
 # Working directory:
 # setwd("Path to main directory")
 
-# Logical for saving results:
-saveResults <- FALSE
-
 # Sourced files:
 source("02code/popDiseaseFunctions.R")
 
@@ -27,96 +24,22 @@ source("02code/popDiseaseFunctions.R")
 # ---------------------------- #
 # Demographic parameters: ----
 # ---------------------------- #
-# Create list of demographic parameters, values and rates:
-demog <- list()
+# Mortality parameters:
+theta <- cbind(F = c(a0 = -0.229, a1 = 1.882, c = 0.013, 
+                     b0 = -10.275, b1 = 0.223), 
+               M = c(a0 = 0.004, a1 = 2.382, c = 0.021, 
+                     b0 = -7.52, b1 = 0.189))
 
-# Read-in parameter values:
-demog$pars <- list()
+# Reproduction parameters:
+beta <- c(r0 = -1.216, r1 = 0.022, r2 = 0.001, r3 = -0.972)
 
-# Mortality parameters (as from study population):
-demog$pars$mort <- cbind(F = c(a0 = -0.229, a1 = 1.882, c = 0.013, 
-                               b0 = -10.275, b1 = 0.223), 
-                         M = c(a0 = 0.004, a1 = 2.382, c = 0.021, 
-                               b0 = -7.52, b1 = 0.189))
-
-# Fecundity:
-demog$pars$fec <- c(r0 = -1.216, r1 = 0.022, r2 = 0.001, r3 = -0.972)
-
-# -------------------------------- #
-# Calculate monthly survival: ----
-# -------------------------------- #
-# Total number of individuals in pop:
-N <- c(F = 60, M = 50)
-
-# Increments in months:
-dx <- 1 / 12
-
-# Maximum longevity:
-omega <- 60
-
-# Daily age vector in year units: 
-demog$x <- seq(0, 60, dx)
-demog$nx <- length(demog$x)
-demog$dx <- dx
-
-# Index of adult ages:
-demog$idAdult <- which(demog$x >= 8)
-demog$nxf <- length(demog$idAdult)
-
-# Calculate monthly age-specific survival per sex:
-demog$px <- list()
-for (sx in c("F", "M")) {
-  theta <- demog$pars$mort[, sx]
-  demog$px[[sx]] <- survfun(demog$x + demog$dx, theta) / 
-    survfun(demog$x, theta)
-}
-
-# Calculate monthly reproduction output
-demog$fx <- fecfun(demog$x, demog$pars$fec) * demog$dx
-demog$fx[demog$x < 8] <- 0
-
-# Sex ratios:
-propM <- 0.523
-propF <- 1 - propM
-demog$sexRatio <- c(F = propF, M = propM)
-
-# initial year:
-yearIni <- 2021
-
-# Fill up initial susceptible states:
-demog$susStart <- matrix(0, demog$nx, 2, dimnames = list(NULL, c("F", "M")))
-xAgeSt <- 0:omega
-for (sx in c("F", "M")) {
-  theta <- demog$pars$mort[, sx]
-  Sx <- survfun(xAgeSt, theta)
-  nAgeVec <- rbinom(n = length(xAgeSt), size = N[sx], prob = Sx / sum(Sx))
-  for (xx in 1:length(xAgeSt)) {
-    idx <- which(abs(demog$x - xAgeSt[xx]) == 
-                   min(abs(demog$x - xAgeSt[xx])))[1]
-    nAge <- rbinom(n = 1, size = N[sx], prob = Sx[xx] / sum(Sx))
-    demog$susStart[idx, sx] <- nAgeVec[xx]
-  }
-}
-
-# ------------------------------ #
-# Setup disease parameters: ----
-# ------------------------------ #
-demog$disease <- list()
-
-# Contagion rate (R0):
-demog$disease$R0 <- 2
-
-# incubation time:
-demog$disease$incTime <- 14
-
-# Mortality probability:
-demog$disease$qx <- 0.3 / (1 + exp(-0.2 * (demog$x - omega * 0.4)))
-
-# Immunity rate:
-demog$disease$immProb <- 0.8 / (1 + exp(-0.1 * (demog$x - omega * 0.4)))
-
-#Immunity duration (in months):
-demog$disease$immDur <- 10
+# ---------------------------------------- #
+# Create baseline demographic object: ----
+# ---------------------------------------- #
+# Demographic object:
+demog <- CreateDemoObj(theta = theta, beta = beta, N = c(F = 60, M = 50),
+                       omega = 60, alpha = 8, propM = 0.523, yearIni = 2021,
+                       R0 = 2, qMax = 0.3, maxImPr = 0.8, immDur = 3)
 
 # ========================== #
 # ==== SINGLE MODEL RUN: ====
@@ -179,8 +102,8 @@ for (vv in 1:nrow(covidVars)) {
     (1 + exp(-0.2 * (demog$x - omega * 0.4)))
   
   # Run multiple models in parallel:
-  outParal <- ParalProjSIRS(nsim = 2000, ncpus = 4, tFin = 10, demog = demogn, 
-                            infIni = infIni)
+  outParal <- ParalProjSIRS(nsim = 2000, ncpus = 4, tFin = 10, 
+                            demog = demogn, infIni = infIni)
   
   # Extract average values:
   meanOutParal <- ExtractParalSIRS(outParal = outParal)
