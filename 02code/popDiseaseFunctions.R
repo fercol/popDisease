@@ -161,6 +161,11 @@ CreateDemoObj <- function(theta, beta, N, omega, alpha, propM, yearIni,
   # Create list of demographic parameters, values and rates:
   demog <- list()
   
+  # General variables:
+  demog$settings <- c(omega = omega, alpha = alpha, propM = propM, 
+                      yearIni = yearIni, R0 = R0, qMax = qMax, 
+                      maxImPr = maxImPr, immDur = immDur)
+  
   # Read-in parameter values:
   demog$pars <- list()
   
@@ -326,6 +331,7 @@ ExtractParalSIRS <- function(outParal) {
   # Calculate mean and 95% quantiles of population size:
   Mtq <- rbind(apply(Mtmat, 2, mean), 
                apply(Mtmat, 2, quantile, c(0.025, 0.33, 0.5, 0.67, 0.975)))
+  rownames(Mtq) <- c("Mean", "2.5%", "33%", "50%", "67%", "97.5%")
   
   # Calculate sd of state values per time interval:
   statesVar <- outParal$out[[1]]$states
