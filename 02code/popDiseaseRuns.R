@@ -1,7 +1,8 @@
 # ============================== CODE METADATA =============================== #
 # AUTHOR: Fernando Colchero <colchero@imada.sdu.dk>
 # DATE CREATED: 2021-03-24
-# DESCRIPTION: 
+# DESCRIPTION: Code to run the population dynamics-epidemiological model 
+#              proposed by Colchero, Eckardt, Stoinski (2021).
 # COMMENTS: 
 # ================================ CODE START ================================ #
 # ================ #
@@ -92,14 +93,14 @@ for (vv in 1:nrow(covidVars)) {
   
   # Replace immunity probability
   demogn$disease$immProb <- covidVars$MImProb[vv] / 
-    (1 + exp(-0.1 * (demog$x - omega * 0.4)))
+    (1 + exp(-0.1 * (demog$x - demog$settings["omega"] * 0.4)))
   
   # Replace immunity duration:
   demogn$disease$immDur <- covidVars$immDur[vv]
   
   # Mortality probability:
   demogn$disease$qx <- covidVars$maxQx[vv] / 
-    (1 + exp(-0.2 * (demog$x - omega * 0.4)))
+    (1 + exp(-0.2 * (demog$x - demog$settings["omega"] * 0.4)))
   
   # Run multiple models in parallel:
   outParal <- ParalProjSIRS(nsim = 2000, ncpus = 4, tFin = 10, 
